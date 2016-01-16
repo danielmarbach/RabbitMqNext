@@ -113,11 +113,11 @@
 				Buffer.BlockCopy(buffer, offset + totalwritten, _buffer, writePos, available);
 
 				totalwritten += available;
-
-				_writePosition += (uint)available; // volative write
-
-				_waitingStrategy.SignalWriteDone(); // signal - if someone is waiting
 			}
+
+			_stateW._writePosition += (uint)totalwritten; // volative write
+
+			_waitingStrategy.SignalWriteDone(); // signal - if someone is waiting
 
 			return totalwritten;
 		}
@@ -155,7 +155,7 @@
 				received = socket.Receive(_buffer, writePos, available, SocketFlags.None);
 			}
 
-			_writePosition += (uint)received; // volative write
+			_stateW._writePosition += (uint)received; // volative write
 
 			_waitingStrategy.SignalWriteDone(); // signal - if someone is waiting
 		}
@@ -200,11 +200,12 @@
 				else
 				{
 					// if (!fillBuffer) break;
-					_readPosition += (uint)available; // volative write
+//					_readPosition += (uint)available; // volative write
 				}
-
-				_waitingStrategy.SignalReadDone(); // signal - if someone is waiting
 			}
+			_stateR._readPosition += (uint)totalRead; // volative write
+
+			_waitingStrategy.SignalReadDone(); // signal - if someone is waiting
 
 			return totalRead;
 		}
@@ -241,7 +242,7 @@
 					totalSent += sent;
 
 					// maybe better throughput if this goes inside the inner loop
-					_readPosition += (uint)sent; // volative write
+					_stateR._readPosition += (uint)sent; // volative write
 					_waitingStrategy.SignalReadDone(); // signal - if someone is waiting
 				}
 
@@ -270,7 +271,7 @@
 
 				totalSkipped += available;
 
-				_readPosition += (uint)available; // volative write
+				_stateR._readPosition += (uint)available; // volative write
 
 				_waitingStrategy.SignalReadDone(); // signal - if someone is waiting
 			}

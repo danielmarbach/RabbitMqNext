@@ -148,12 +148,12 @@
 			return _io.__BasicRecover(requeue);
 		}
 
-//		public async Task<RpcHelper> CreateRpcHelper(ConsumeMode mode, int maxConcurrentCalls = 500)
-//		{
-//			var helper = new RpcHelper(this, maxConcurrentCalls, mode);
-//			await helper.Setup();
-//			return helper;
-//		}
+		public async Task<RpcHelper> CreateRpcHelper(ConsumeMode mode, int maxConcurrentCalls = 500)
+		{
+			var helper = new RpcHelper(this, maxConcurrentCalls, mode);
+			await helper.Setup();
+			return helper;
+		}
 
 		public async Task Close()
 		{
@@ -343,11 +343,5 @@
 			public ConsumeMode Mode;
 			public Func<MessageDelivery, Task> Callback;
 		}
-	}
-
-	public static class ChannelApiExtensions
-	{
-		
-
 	}
 }

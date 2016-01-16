@@ -2,6 +2,7 @@
 {
 	using System;
 	using System.Runtime.CompilerServices;
+	using System.Runtime.InteropServices;
 	using System.Threading;
 
 
@@ -23,9 +24,26 @@
 //		protected long p1, p2, p3, p4, p5, p6, p7;
 		protected readonly uint _bufferSize;
 
-		internal volatile uint _readPosition;
-		protected long _p1, _p2, _p3, _p4, _p5, _p6, _p7;
-		internal volatile uint _writePosition;
+//		internal volatile uint _readPosition;
+		// protected long _p1, _p2, _p3, _p4, _p5, _p6;
+//		internal volatile uint _writePosition;
+
+		[StructLayout(LayoutKind.Explicit, Size = 64)]
+		internal struct StateR
+		{
+			[FieldOffset(0)]
+			public volatile uint _readPosition;
+		}
+
+		[StructLayout(LayoutKind.Explicit, Size = 64)]
+		internal struct StateW
+		{
+			[FieldOffset(0)]
+			public volatile uint _writePosition;
+		}
+
+		internal StateR _stateR;
+		internal StateW _stateW;
 
 		protected readonly CancellationToken _cancellationToken;
 		protected readonly WaitingStrategy _waitingStrategy;
@@ -40,7 +58,7 @@
 		{
 			if (_gateState == -1) throw new Exception("Max gates reached");
 
-			var gate = new ReadingGate() { gpos = _readPosition, length = length };
+			var gate = new ReadingGate() { gpos = _stateR._readPosition, length = length };
 
 			AtomicSecureIndexPosAndStore(gate);
 
@@ -91,9 +109,9 @@
 		internal /*AvailableAndPos*/ int InternalGetReadyToReadEntries(int desiredCount, out int available, ReadingGate fromGate = null)
 		{
 			uint bufferSize = _bufferSize;
-			
-			uint readCursor = _readPosition;   // volative read
-			uint writeCursor = _writePosition; // volative read
+
+			uint readCursor = _stateR._readPosition;   // volative read
+			uint writeCursor = _stateW._writePosition; // volative read
 
 			uint writePos = writeCursor & (bufferSize - 1); // (writeCursor % _bufferSize);
 			uint readPos = readCursor & (bufferSize - 1);   // (readCursor % _bufferSize);
@@ -151,8 +169,8 @@
 		{
 			var buffersize = _bufferSize;
 
-			uint readCursor = _readPosition;   // volative read
-			uint writeCursor = _writePosition; // volative read
+			uint readCursor = _stateR._readPosition;   // volative read
+			uint writeCursor = _stateW._writePosition; // volative read
 
 			uint writePos = writeCursor & (buffersize - 1);
 			uint readPos = readCursor & (buffersize - 1);
@@ -236,7 +254,7 @@
 		public bool HasUnreadContent
 		{
 			// two volatives reads
-			get { return _writePosition != _readPosition; }
+			get { return _stateW._writePosition != _stateR._readPosition; }
 		}
 
 //		internal struct AvailableAndPos
@@ -303,10 +321,10 @@
 
 		// For unit testing only
 
-		internal uint GlobalReadPos { get { return _readPosition; } }
-		internal uint GlobalWritePos { get { return _writePosition; } }
-		internal uint LocalReadPos { get { return _readPosition % _bufferSize; } }
-		internal uint LocalWritePos { get { return _writePosition % _bufferSize; } }
+		internal uint GlobalReadPos { get { return _stateR._readPosition; } }
+		internal uint GlobalWritePos { get { return _stateW._writePosition; } }
+		internal uint LocalReadPos { get { return _stateR._readPosition % _bufferSize; } }
+		internal uint LocalWritePos { get { return _stateW._writePosition % _bufferSize; } }
 
 	}
 }

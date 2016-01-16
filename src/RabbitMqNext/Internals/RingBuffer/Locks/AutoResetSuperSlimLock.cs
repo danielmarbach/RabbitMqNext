@@ -4,6 +4,7 @@ namespace RabbitMqNext.Internals.RingBuffer.Locks
 	using System.Collections.Concurrent;
 	using System.Collections.Generic;
 	using System.Runtime.CompilerServices;
+	using System.Runtime.InteropServices;
 	using System.Threading;
 	using System.Threading.Tasks;
 
@@ -14,6 +15,14 @@ namespace RabbitMqNext.Internals.RingBuffer.Locks
 	/// </summary>
 	internal class AutoResetSuperSlimLock
 	{
+		// https://software.intel.com/sites/default/files/m/3/4/d/7/e/29393-218129_218129.pdf
+		[StructLayout(LayoutKind.Explicit, Size = 64)] 
+		struct State
+		{
+			[FieldOffset(0)]
+			public volatile int _state;
+		}
+
 		internal const int SignalledStateMask = 0x8000;      // 1000 0000 0000 0000
 		internal const int SignalledStatePos = 15;
 		internal const int NumWaitersStateMask = (0xFF);     // 0000 0000 1111 1111
@@ -21,8 +30,9 @@ namespace RabbitMqNext.Internals.RingBuffer.Locks
 //		internal const int RelWaitersStateMask = (0x7F00);   // 0111 1111 0000 0000
 //		internal const int RelWaitersStatePos = 8;
 
+		private State _stateHolder;//  = new State();
+
 		private readonly ConcurrentQueue<TaskCompletionSource<bool>> _waiters = new ConcurrentQueue<TaskCompletionSource<bool>>();
-		private volatile int _state;
 		private readonly object _lock = new object();
 		
 		private static readonly int ProcCounter = Environment.ProcessorCount;
@@ -34,7 +44,7 @@ namespace RabbitMqNext.Internals.RingBuffer.Locks
 
 		public AutoResetSuperSlimLock(bool initialState = false)
 		{
-			if (initialState) _state = SignalledStateMask;
+			if (initialState) _stateHolder._state = SignalledStateMask;
 		}
 
 		public Task WaitAsync()
@@ -141,7 +151,7 @@ namespace RabbitMqNext.Internals.RingBuffer.Locks
 		public bool IsSet
 		{
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
-			get { return (_state & SignalledStateMask) != 0; }
+			get { return (_stateHolder._state & SignalledStateMask) != 0; }
 		}
 
 		public void Dispose()
@@ -163,14 +173,14 @@ namespace RabbitMqNext.Internals.RingBuffer.Locks
 			var spinWait = new SpinWait();
 			while (true)
 			{
-				var curState = _state;
+				var curState = _stateHolder._state;
 
 				// (1) zero the updateBits.  eg oldState = [11111111]    flag=00111000  newState= [11000111]
 				// (2) map in the newBits.              eg [11000111] newBits=00101000, newState= [11101111]
 				int newState = (curState & ~mask) | (val << shifts);
 
 #pragma warning disable 420
-				if (Interlocked.CompareExchange(ref _state, newState, curState) == curState)
+				if (Interlocked.CompareExchange(ref _stateHolder._state, newState, curState) == curState)
 #pragma warning restore 420
 				{
 					break;
@@ -183,7 +193,7 @@ namespace RabbitMqNext.Internals.RingBuffer.Locks
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		internal bool TryAtomicXor(int val, int shifts, int mask)
 		{
-			var curState = _state;
+			var curState = _stateHolder._state;
 
 			// (1) zero the updateBits.  eg oldState = [11111111]    flag=00111000  newState= [11000111]
 			// (2) map in the newBits.              eg [11000111] newBits=00101000, newState= [11101111]
@@ -197,7 +207,7 @@ namespace RabbitMqNext.Internals.RingBuffer.Locks
 			// expected [000001]
 
 #pragma warning disable 420
-			return (Interlocked.CompareExchange(ref _state, newState, expected) == expected);
+			return (Interlocked.CompareExchange(ref _stateHolder._state, newState, expected) == expected);
 #pragma warning restore 420
 		}
 
@@ -242,7 +252,7 @@ namespace RabbitMqNext.Internals.RingBuffer.Locks
 		{
 			get
 			{
-				return ExtractStatePortionAndShiftRight(_state, NumWaitersStateMask, NumWaitersStatePos);
+				return ExtractStatePortionAndShiftRight(_stateHolder._state, NumWaitersStateMask, NumWaitersStatePos);
 			}
 			set
 			{
