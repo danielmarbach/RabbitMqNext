@@ -213,8 +213,8 @@
 				if (!(entriesFree <= _bufferSize - 1))
 				{
 					var msg = "Assert write1 failed: " + entriesFree + " must be less or equal to " + (BufferSize - 1) +
-						" originalreadPos " + originalreadPos + " readpos " + readPos + " write " + writePos + 
-						" G w " + _writePosition + " G r " + _readPosition;
+						" originalreadPos " + originalreadPos + " readpos " + readPos + 
+						" write " + writePos + " G w " + _stateW._writePosition + " G r " + _stateR._readPosition;
 					System.Diagnostics.Debug.WriteLine(msg);
 					throw new Exception(msg);
 				}

@@ -19,8 +19,8 @@
 
 		const bool WithAcks = false;
 
-//		const int TotalPublish = 250000;
-		const int TotalPublish = 10;
+		const int TotalPublish = 250000;
+//		const int TotalPublish = 10;
 //		const int TotalPublish = 100000;
 //		const int TotalPublish = 500000;
 //		const int TotalPublish = 2000000;
@@ -133,7 +133,7 @@
 			}
 
 			if (conn2 != null)
-				await conn2.Close();
+				conn2.Dispose();
 		}
 
 		private static async Task<int> MakeCall(RpcHelper rpcHelper, int y)
@@ -279,9 +279,9 @@
 			}
 
 			if (conn1 != null)
-				await conn1.Close();
+				conn1.Dispose();
 			if (conn2 != null)
-				await conn2.Close();
+				conn2.Dispose();
 		}
 
 		private static async Task Start()
@@ -293,8 +293,8 @@
 
 				Console.WriteLine("[Connected]");
 
-				// var newChannel = await conn.CreateChannel();
-				var newChannel = await conn.CreateChannelWithPublishConfirmation();
+				var newChannel = await conn.CreateChannel();
+//				var newChannel = await conn.CreateChannelWithPublishConfirmation();
 				Console.WriteLine("[channel created] " + newChannel.ChannelNumber);
 				await newChannel.BasicQos(0, Prefetch, false);
 
@@ -306,12 +306,16 @@
 
 				await newChannel.QueueBind("queue1", "test_ex", "routing1", null, true);
 
-				var prop = new BasicProperties()
-				{
-					// DeliveryMode = 2,
-					Type = "type1",
-					Headers = new Dictionary<string, object> {{"serialization", 0}}
-				};
+//				var prop = new BasicProperties()
+//				{
+//					// DeliveryMode = 2,
+//					Type = "type1",
+//					Headers = new Dictionary<string, object> {{"serialization", 0}}
+//				};
+
+//				var prop = newChannel.RentBasicProperties();
+//				prop.Headers = new Dictionary<string, object> {{"serialization", 0}};
+				var prop = BasicProperties.Empty;
 
 				newChannel.MessageUndeliveredHandler = (undelivered) =>
 				{
@@ -328,7 +332,7 @@
 				var watch = Stopwatch.StartNew();
 				for (int i = 0; i < TotalPublish; i++)
 				{
-					prop.Headers["serialization"] = i;
+//					prop.Headers["serialization"] = i;
 					// var buffer = Encoding.ASCII.GetBytes("The " + i + " " + Message);
 					await newChannel.BasicPublish("test_ex", "routing1", true, false, prop, new ArraySegment<byte>(MessageContent));
 
@@ -399,7 +403,7 @@
 			}
 
 			if (conn != null)
-				await conn.Close();
+				conn.Dispose();
 		}
 
 		private static async Task StartOriginalClientRpc()
