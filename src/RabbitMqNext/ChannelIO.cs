@@ -383,10 +383,15 @@ namespace RabbitMqNext
 				tcs = _taskLightPool.GetObject();
 			}
 
-//			if (properties.IsReusable)
-//			{
-//				replyFunc = (_c, _i, _error) => _channel.Return(properties);
-//			}
+			if (properties.IsReusable)
+			{
+				replyFunc = (a, c, e) =>
+				{
+					_channel.Return(properties);
+					if (tcs != null) tcs.SetCompleted();
+					return Task.CompletedTask;
+				};
+			}
 
 			if (needsHardConfirmation) // we're in pub confirmation mode
 			{
